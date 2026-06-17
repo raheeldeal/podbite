@@ -1,4 +1,4 @@
-# podsynth
+# podbite
 
 Paste a podcast (a YouTube playlist, channel, or video URLs) → get a synthesis of the
 **whole show** at the length you choose. Not per-episode summaries (Snipd does that),
@@ -12,6 +12,7 @@ This is a v0. It does the spine end-to-end. The hard extensions are deliberately
 ## Run it (5 minutes)
 
 ```bash
+brew install yt-dlp deno         # captions are fetched via yt-dlp (needs deno)
 npm install
 cp .env.example .env.local      # then paste your Anthropic key into .env.local
 npm run dev
@@ -21,7 +22,8 @@ Open http://localhost:3000, paste a YouTube **playlist or channel URL** (or a fe
 URLs separated by spaces/commas), pick Quick or Deep, hit Synthesize.
 
 You need **one** key: `ANTHROPIC_API_KEY` from https://console.anthropic.com.
-YouTube listing + captions are keyless (via `youtubei.js`).
+YouTube listing is keyless (via `youtubei.js`); captions are fetched with the keyless
+`yt-dlp` binary (see "Known fragility" for why).
 
 > **Pick a show that's on YouTube** for v0 — that's how you skip building an audio
 > transcription engine. Captions come free from YouTube. Audio-only podcasts are the
@@ -77,7 +79,7 @@ spend is LLM tokens. The design keeps it bounded:
 ```
 app/page.tsx              UI (single column, editorial)
 app/api/ingest/route.ts   orchestration + synthesis cache
-lib/youtube.ts            resolve episodes + fetch captions  ← most fragile, isolated on purpose
+lib/youtube.ts            resolve episodes (youtubei.js) + fetch captions (yt-dlp)  ← most fragile, isolated on purpose
 lib/summarize.ts          map (Haiku) + reduce (Sonnet) + length targeting
 lib/anthropic.ts          thin Messages API client (Haiku=map, Sonnet=reduce)
 lib/cache.ts              file cache = the cost story
@@ -86,7 +88,17 @@ lib/types.ts              shared types
 
 ## Known fragility
 
-`lib/youtube.ts` scrapes YouTube's internal API via `youtubei.js`. It occasionally breaks
-when YouTube changes things — if episode listing or transcripts fail, that's the file to
-fix, and the eventual place to swap in `yt-dlp` or the official YouTube Data API. It's the
-one thing in here I couldn't verify end-to-end without running it against live YouTube.
+`lib/youtube.ts` is the only file that talks to YouTube, and it's split across two
+mechanisms on purpose:
+
+- **Episode listing** uses `youtubei.js` (scrapes YouTube's internal API). Listing
+  endpoints don't need attestation, so this is stable enough.
+- **Captions** use the **`yt-dlp`** binary. As of 2025–26 YouTube requires a *PoToken*
+  (a BotGuard proof-of-origin token) for caption fetches — without it the `timedtext`
+  endpoint returns an empty `200` and the old `get_transcript` endpoint `400`s, so
+  `youtubei.js` reports "no captions" for *every* video. `yt-dlp` solves the JS challenge
+  itself (via `deno`) and returns real captions. This is the swap-in this README always
+  anticipated. If captions stop working, update yt-dlp first: `brew upgrade yt-dlp`.
+
+The official YouTube Data API is the other fallback for listing, but it can't serve
+captions for videos you don't own, so it's not a drop-in for the caption path.

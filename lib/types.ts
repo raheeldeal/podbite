@@ -1,4 +1,8 @@
-export type LengthPreset = "quick" | "deep";
+export type LengthPreset = "quick" | "standard" | "deep";
+
+// Summarize one episode, or the whole show. "series" is a Day-2 feature
+// (currently surfaced as "coming soon" in the UI).
+export type SummaryScope = "episode" | "series";
 
 export interface Episode {
   videoId: string;
@@ -21,6 +25,7 @@ export interface EpisodeSummary {
 export interface IngestRequest {
   url: string;
   length: LengthPreset;
+  scope?: SummaryScope; // defaults to "episode"
 }
 
 export interface IngestResponse {
@@ -28,5 +33,7 @@ export interface IngestResponse {
   episodeCount: number;
   skipped: { title: string; reason: string }[];
   synthesis: string; // final cross-episode markdown (the "reduce" output)
+  transcript?: string; // full caption text, for the collapsible transcript view
+  videoId?: string; // for follow-up calls (Ask)
   cached: boolean;
 }
