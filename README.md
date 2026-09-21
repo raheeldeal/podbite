@@ -79,9 +79,12 @@ spend is LLM tokens. The design keeps it bounded:
 ```
 app/page.tsx              UI (single column, editorial)
 app/api/ingest/route.ts   orchestration + synthesis cache
+app/api/ask/route.ts      Q&A on a single episode (reuses the transcript cache)
+app/api/tts/route.ts      mp3 synthesis endpoint (cached, immutable)
 lib/youtube.ts            resolve episodes (youtubei.js) + fetch captions (yt-dlp)  ← most fragile, isolated on purpose
 lib/summarize.ts          map (Haiku) + reduce (Sonnet) + length targeting
 lib/anthropic.ts          thin Messages API client (Haiku=map, Sonnet=reduce)
+lib/tts.ts                OpenAI tts-1 client, chunked + cached
 lib/cache.ts              file cache = the cost story
 lib/types.ts              shared types
 ```
