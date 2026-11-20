@@ -3,7 +3,8 @@
 Paste a podcast (a YouTube playlist, channel, or video URLs) → get a synthesis of the
 **whole show** at the length you choose. Not per-episode summaries (Snipd does that),
 not manual multi-source dumps (NotebookLM does that) — the cross-episode through-line
-neither of them produces.
+neither of them produces. Then listen to it read aloud, ask questions about an episode,
+or read the full transcript.
 
 This is a v0. It does the spine end-to-end. The hard extensions are deliberately deferred (see below).
 
@@ -31,14 +32,20 @@ YouTube listing is keyless (via `youtubei.js`); captions are fetched with the ke
 
 ---
 
-## Architecture (the part interviewers care about)
+## How it works
 
-It's a **map-reduce summarization pipeline**:
+It's a **map-reduce summarization pipeline**: summarise each episode cheaply, then combine
+all the summaries once with a stronger model.
 
-```
-URL ─► resolve episodes ─► [per episode] fetch captions ─► MAP (Haiku) ─► reduce ─► synthesis
-                                  │                            │             │
-                                  └── cached ──────────────────┴── cached ───┘
+```mermaid
+flowchart LR
+    U["YouTube URL<br/>playlist, channel<br/>or videos"] --> E["Resolve<br/>episodes"]
+    E --> C["Fetch captions<br/>per episode"]
+    C --> M["Map: Haiku<br/>notes per episode"]
+    M --> R["Reduce: Sonnet<br/>one synthesis at<br/>your chosen length"]
+    R --> O["Read, listen,<br/>or ask"]
+    C -. cached .-> K[("File cache")]
+    M -. cached .-> K
 ```
 
 - **Map step** (`lib/summarize.ts → summarizeEpisode`): one cheap **Haiku** call per
